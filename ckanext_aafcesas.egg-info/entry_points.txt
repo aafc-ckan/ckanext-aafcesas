@@ -1,0 +1,4 @@
+
+        [ckan.plugins]
+        aafcesas=ckanext.aafcesas.plugin:AafcESASPlugin
+    
