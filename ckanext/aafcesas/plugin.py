@@ -17,7 +17,7 @@ class AafcESASPlugin(plugins.SingletonPlugin):
     '''
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IAuthenticator)
-    plugins.implements(plugins.IBlueprint)
+#    plugins.implements(plugins.IBlueprint)
 
     def update_config(self, config):
         '''Update CKAN config with settings needed by this plugin.
@@ -39,7 +39,7 @@ class AafcESASPlugin(plugins.SingletonPlugin):
             c.user = None
         if shib_partyid is None:
 	    logger.debug("ESAS Identity not Found in HEADER")
-        if shib_partyid is not None:
+        if shib_partyid is not None and c.user is None:
             logger.debug("ESAS Identity Found in Header")
             shib_email= request.headers.get('email')
             shib_username= (request.headers.get('Legalgivennames') + '_' + request.headers.get('Legalfamilyname')).lower()
@@ -49,39 +49,40 @@ class AafcESASPlugin(plugins.SingletonPlugin):
             logger.debug("username = \"{0}\"".format(shib_username)) 
             logger.debug("fullname = \"{0}\"".format(shib_fullname)) 
             check_user = get_user_by_userid(shib_partyid)
-            if check_user:
-                # ESAS user exists in CKAN
-                if c.user and c.user==check_user['name']:
-                   logger.debug("User logged in already username = \"{0}\"".format(user['name'])) 
-                   # Check if ESAS email for user has changed.
-                   # If it has changed then update user email to match
-                   # CKAN is not system of record for email. 
-                   # Changes as needed to match ESAS header.
-                   current_email = get_email_by_userid(shib_partyid)
-                   if shib_email != current_email:
-                       logger.info("ESAS: A user account has changed email.")
-                       check_user=toolkit.get_action('user_update')(
-                          context={'ignore_auth': True, 'user': 'ckan_admin'},
-                          data_dict={'id':shib_partid,
-                                  'email': shib_email})
-                elif c.user and c.user!=check_user['name']:
+            # ESAS user is logged in and exists in CKAN
+            if c.user and c.user==check_user['name']:
+               logger.debug("User logged in already username = \"{0}\"".format(user['name'])) 
+               # Check if ESAS email for user has changed.
+               # If it has changed then update user email to match
+               # CKAN is not system of record for email. 
+               # Changes as needed to match ESAS header.
+               current_email = get_email_by_userid(shib_partyid)
+               if shib_email != current_email:
+                   logger.info("ESAS: A user account has changed email.")
+                   check_user=toolkit.get_action('user_update')(
+                      context={'ignore_auth': True, 'user': 'ckan_admin'},
+                      data_dict={'id':shib_partid,
+                              'email': shib_email})
+            elif c.user and c.user!=check_user['name']:
 		   # User already logged in and ESAS header does not match
 		   logger.info("ESAS: User already logged in to CKAN - \"{0}\"".format(c.user['name']))
 		   logger.info("ESAS: Username in header - \"{0}\"".format(c.user['name']))
 		   logger.info("ESAS: User being set to username in ESAS header.")
+            elif check_user is not None and c.user is None:
+		# User not logged in and ESAS header exists
+		c.user = check_user['name']
             else:
                 # A user with this username doesn't yet exist in CKAN
                 # - so create one.
                 logger.info("ESAS: user not found. Creating new CKAN user.")
                 check_user = toolkit.get_action('user_create')(
                     context = {'ignore_auth': False, 'user': 'ckan_admin'},
-                    data_dict={'email': shib_email,
+                       data_dict={'email': shib_email,
                                'id': shib_partyid,
                                'name': shib_username,
                                'fullname': shib_fullname,
                                'password': generate_password()})
                 logger.debug("username = \"{0}\"".format(check_user['name'])) 
-            c.user = check_user['name']
 
     def logout(self):
         pass
@@ -89,14 +90,14 @@ class AafcESASPlugin(plugins.SingletonPlugin):
     def abort(self, status_code, detail, headers, comment):
         pass
 
-    def get_blueprint(self):
-        blueprint = Blueprint('aafcesas',
-              self.__module__,
-              template_folder='templates')  
-        _edit_view = AafcESASEditView.as_view(str(u'edit'))
-        blueprint.add_url_rule(u'/user/edit',view_func=_edit_view)
-        blueprint.add_url_rule(u'/user/edit/<id>',view_func=_edit_view)
-        return blueprint
+#    def get_blueprint(self):
+#        blueprint = Blueprint('aafcesas',
+#              self.__module__,
+#              template_folder='templates')  
+#        _edit_view = AafcESASEditView.as_view(str(u'edit'))
+#        blueprint.add_url_rule(u'/user/edit',view_func=_edit_view)
+#        blueprint.add_url_rule(u'/user/edit/<id>',view_func=_edit_view)
+#        return blueprint
 
 #def alter_user_edit_view(f):
 #        def decorator(*args, **kwargs):
