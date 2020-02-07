@@ -10,6 +10,9 @@ from ckan.common import  g, c
 from ckan.plugins.toolkit import request, config
 from flask import Blueprint
 from ckanext.aafcesas.views import AafcESASEditView
+import re
+import unicodedata
+
 
 class AafcESASPlugin(plugins.SingletonPlugin):
     '''A CKAN plugin that enables SSO using a simple header parameter.
@@ -42,8 +45,12 @@ class AafcESASPlugin(plugins.SingletonPlugin):
         if shib_partyid is not None and c.user is None:
             logger.debug("ESAS Identity Found in Header")
             shib_email= request.headers.get('email')
-            shib_username= (request.headers.get('Legalgivennames') + '_' + request.headers.get('Legalfamilyname')).lower()
-            shib_fullname= request.headers.get('Legalgivennames') + ' ' + request.headers.get('Legalfamilyname')
+            gives = text_to_id(request.headers.get('Legalgivennames'))
+            fams = text_to_id(request.headers.get('Legalfamilyname'))
+            nonumgives = re.sub('[0-9]+', '', gives)
+            nonumfam = re.sub('[0-9]+', '', fams)
+            shib_username= (nonumgives + '_' + nonumfam).lower()
+            shib_fullname= nonumgives + ' ' + nonumfam
             logger.debug("partyId = \"{0}\"".format(shib_partyid)) 
             logger.debug("email = \"{0}\"".format(shib_email)) 
             logger.debug("username = \"{0}\"".format(shib_username)) 
@@ -104,7 +111,39 @@ class AafcESASPlugin(plugins.SingletonPlugin):
 #             edit_user_form = u'/aafcesas/user/edit_user_form.html'
 #             return f(*args, **kwargs)
 #        return decorator
+def strip_accents(text):
+    """
+    Strip accents from input String.
 
+    :param text: The input string.
+    :type text: String.
+
+    :returns: The processed String.
+    :rtype: String.
+    """
+    try:
+        text = unicode(text, 'utf-8')
+    except (TypeError, NameError): # unicode is a default on python 3 
+        pass
+    text = unicodedata.normalize('NFD', text)
+    text = text.encode('ascii', 'ignore')
+    text = text.decode("utf-8")
+    return str(text)
+
+def text_to_id(text):
+    """
+    Convert input text to id.
+
+    :param text: The input string.
+    :type text: String.
+
+    :returns: The processed String.
+    :rtype: String.
+    """
+    text = strip_accents(text.lower())
+    text = re.sub('[ ]+', '_', text)
+    text = re.sub('[^0-9a-zA-Z_-]', '', text)
+    return text
 def get_user_by_username(username):
         '''Return the CKAN user with the given username.
         :rtype: A CKAN user dict
