@@ -12,7 +12,10 @@ from flask import Blueprint
 from ckanext.aafcesas.views import AafcESASEditView
 import re
 import unicodedata
+from string import ascii_lowercase
 
+dct={'0':'a','1':'b','2':'c','3':'d','4':'e',
+     '5':'f','6':'g','7':'h','8':'i','9':'j'}
 
 class AafcESASPlugin(plugins.SingletonPlugin):
     '''A CKAN plugin that enables SSO using a simple header parameter.
@@ -49,7 +52,7 @@ class AafcESASPlugin(plugins.SingletonPlugin):
             fams = text_to_id(request.headers.get('Legalfamilyname'))
             nonumgives = re.sub('[0-9]+', '', gives)
             nonumfam = re.sub('[0-9]+', '', fams)
-            shib_username= (nonumgives + '_' + nonumfam).lower()
+            shib_username= (alphabet_position(gives) + '_' + alphabet_position(fams)).lower()
             shib_fullname= nonumgives + ' ' + nonumfam
             logger.debug("partyId = \"{0}\"".format(shib_partyid)) 
             logger.debug("email = \"{0}\"".format(shib_email)) 
@@ -75,6 +78,7 @@ class AafcESASPlugin(plugins.SingletonPlugin):
 		   logger.info("ESAS: User already logged in to CKAN - \"{0}\"".format(c.user['name']))
 		   logger.info("ESAS: Username in header - \"{0}\"".format(c.user['name']))
 		   logger.info("ESAS: User being set to username in ESAS header.")
+
             elif check_user is not None and c.user is None:
 		# User not logged in and ESAS header exists
 		c.user = check_user['name']
@@ -144,6 +148,20 @@ def text_to_id(text):
     text = re.sub('[ ]+', '_', text)
     text = re.sub('[^0-9a-zA-Z_-]', '', text)
     return text
+
+def alphabet_position(text):
+    text = text.lower()
+
+    newstr=''
+    for ch in text:
+        if ch.isdigit()==True:
+            dw=dct[ch]
+            newstr=newstr+dw
+        else:
+            newstr=newstr+ch
+
+    return ''.join(newstr)
+
 def get_user_by_username(username):
         '''Return the CKAN user with the given username.
         :rtype: A CKAN user dict
